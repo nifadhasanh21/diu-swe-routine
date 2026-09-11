@@ -56,6 +56,7 @@ export default function RoutinePage() {
   const [searchInput, setSearchInput] = useState(query);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [searchMeta, setSearchMeta] = useState({ batch: '', section: '', teacher: '', type: '' });
 
@@ -66,14 +67,37 @@ export default function RoutinePage() {
       handleSearch(query);
     } else {
       setSchedules([]);
+      setPreviewImage(null);
     }
   }, [query]);
+
+  // Auto-generate preview image as soon as schedule data is loaded
+  useEffect(() => {
+    if (schedules.length > 0 && exportRef.current) {
+      const generatePreview = async () => {
+        try {
+          // Slight delay to ensure DOM styling is rendered
+          await new Promise((res) => setTimeout(res, 200));
+          const dataUrl = await toJpeg(exportRef.current, {
+            quality: 0.95,
+            pixelRatio: 2,
+            backgroundColor: '#00B589',
+          });
+          setPreviewImage(dataUrl);
+        } catch (err) {
+          console.error('Failed to generate preview image:', err);
+        }
+      };
+      generatePreview();
+    }
+  }, [schedules]);
 
   const handleSearch = async (searchTerm) => {
     const rawInput = searchTerm.trim();
     if (!rawInput) return;
 
     setLoading(true);
+    setPreviewImage(null);
 
     try {
       const batchSecRegex = /^(\d{2,3})[\s-]*([a-zA-Z])$/;
@@ -161,8 +185,8 @@ export default function RoutinePage() {
     try {
       const dataUrl = await toJpeg(exportRef.current, {
         quality: 1.0,
-        pixelRatio: 3, // High DPI HD Export
-        backgroundColor: '#E8F5F3',
+        pixelRatio: 3, // Ultra High Quality
+        backgroundColor: '#00B589',
       });
 
       const link = document.createElement('a');
@@ -177,124 +201,9 @@ export default function RoutinePage() {
     }
   };
 
-  const renderGridContent = (isExportCanvas = false) => (
-    <>
-      {/* Top Banner */}
-      <div className="flex flex-wrap justify-between items-center gap-3 pb-3 border-b border-teal-200/60 mb-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="px-3.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-sm">
-            Effective From: 12 september 2026
-          </div>
-
-          {searchMeta.type === 'batch' ? (
-            <div className="flex items-center gap-4 bg-white px-5 py-1.5 border border-slate-200 rounded-full shadow-sm">
-              <span className={`${isExportCanvas ? 'text-lg' : 'text-sm md:text-lg'} font-black text-slate-800`}>
-                Section: <span className="text-teal-700">{searchMeta.section}</span>
-              </span>
-              <span className={`${isExportCanvas ? 'text-lg' : 'text-sm md:text-lg'} font-black text-slate-800`}>
-                Batch: <span className="text-teal-700">{searchMeta.batch}</span>
-              </span>
-            </div>
-          ) : (
-            <div className="bg-white px-5 py-1.5 border border-slate-200 rounded-full shadow-sm">
-              <span className={`${isExportCanvas ? 'text-lg' : 'text-sm md:text-lg'} font-black text-slate-800`}>
-                Faculty: <span className="text-teal-700">{searchMeta.teacher}</span>
-              </span>
-            </div>
-          )}
-        </div>
-
-        <div>
-          <h1 className={`${isExportCanvas ? 'text-xl' : 'text-base md:text-xl'} font-black text-teal-900 tracking-tight`}>
-            Department of Software Engineering
-          </h1>
-        </div>
-      </div>
-
-      {/* Grid Table */}
-      <div className={`grid grid-cols-8 gap-2.5 ${isExportCanvas ? 'w-full my-auto' : 'w-full'}`}>
-        <div className={`flex items-center justify-center font-bold text-slate-500 uppercase tracking-wider ${isExportCanvas ? 'text-xs' : 'text-[10px] md:text-xs'}`}>
-          TIME
-        </div>
-
-        {DAYS.map((day) => (
-          <div
-            key={day}
-            className={`bg-[#FF6B5B] text-white rounded-full flex items-center justify-center font-extrabold shadow-sm truncate px-1 ${
-              isExportCanvas ? 'h-[36px] text-sm' : 'h-[32px] md:h-[38px] text-xs md:text-sm'
-            }`}
-          >
-            {day}
-          </div>
-        ))}
-
-        {TIME_SLOTS.map((slot) => (
-          <React.Fragment key={slot}>
-            <div className={`flex items-center justify-center font-extrabold text-slate-800 text-center leading-tight ${isExportCanvas ? 'text-xs' : 'text-[10px] md:text-xs'}`}>
-              {slot}
-            </div>
-
-            {DAYS.map((day) => {
-              const matchedClasses = getScheduleForSlot(day, slot);
-              const hasClass = matchedClasses.length > 0;
-
-              return (
-                <div
-                  key={`${day}-${slot}`}
-                  className={`rounded-2xl border flex flex-col justify-between p-2 transition-all ${
-                    isExportCanvas
-                      ? 'min-h-[105px]'
-                      : 'min-h-[90px] md:min-h-[100px]'
-                  } ${
-                    hasClass
-                      ? 'bg-[#D1EFEA] border-teal-300 shadow-sm'
-                      : 'bg-[#DFF1EE]/50 border-teal-100/60'
-                  }`}
-                >
-                  <div className={`font-bold text-[#FF6B5B] text-center tracking-tight ${isExportCanvas ? 'text-[10px]' : 'text-[9px] md:text-[10px]'}`}>
-                    {slot}
-                  </div>
-
-                  {hasClass ? (
-                    matchedClasses.map((item, idx) => {
-                      const { codeOnly, fullName } = parseCourseDetails(item.course_code);
-                      return (
-                        <div key={idx} className="text-center my-auto space-y-0.5">
-                          <div className={`font-bold text-slate-900 leading-tight ${isExportCanvas ? 'text-xs' : 'text-[10px] md:text-xs'}`}>
-                            {fullName}
-                          </div>
-                          <div className={`text-slate-700 font-bold ${isExportCanvas ? 'text-[11px]' : 'text-[9px] md:text-[10px]'}`}>
-                            {codeOnly} {searchMeta.type === 'batch' ? `- ${item.teacher_initial}` : ''}
-                          </div>
-                          <div className={`text-teal-800 font-extrabold ${isExportCanvas ? 'text-[11px]' : 'text-[9px] md:text-[10px]'}`}>
-                            Room: {item.room}
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="h-full" />
-                  )}
-                </div>
-              );
-            })}
-          </React.Fragment>
-        ))}
-      </div>
-
-      {/* Footer */}
-      <div className="flex justify-between items-center pt-3 border-t border-teal-200/60 text-xs font-bold text-slate-600 mt-2">
-        <span>sweroutine.com</span>
-        <span className="px-3 py-1 bg-white rounded-full border border-slate-200 text-slate-600 font-medium text-xs shadow-sm">
-          Generated from: sweroutine.com
-        </span>
-      </div>
-    </>
-  );
-
   return (
-    <div className="w-full max-w-7xl mx-auto p-2 sm:p-4 md:p-8 space-y-6 font-sans text-slate-900">
-      {/* Search Header */}
+    <div className="w-full max-w-4xl mx-auto p-4 sm:p-6 space-y-6 font-sans text-slate-900">
+      {/* Search Bar */}
       <div className="max-w-xl mx-auto space-y-3">
         <form onSubmit={onSubmit} className="flex gap-2">
           <input
@@ -302,11 +211,11 @@ export default function RoutinePage() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search Teacher (e.g. SK) or Batch+Section (e.g. 43c)..."
-            className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-900 placeholder-slate-400 rounded-2xl shadow-sm focus:ring-2 focus:ring-teal-500 outline-none text-xs md:text-sm"
+            className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-900 placeholder-slate-400 rounded-2xl shadow-sm focus:ring-2 focus:ring-teal-500 outline-none text-sm"
           />
           <button
             type="submit"
-            className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-2xl shadow-sm text-xs md:text-sm whitespace-nowrap"
+            className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-2xl shadow-sm text-sm whitespace-nowrap"
           >
             Search
           </button>
@@ -329,39 +238,50 @@ export default function RoutinePage() {
         </div>
       </div>
 
+      {/* Main Content Area */}
       {loading ? (
-        <div className="text-center py-20 text-slate-400 text-sm">Generating routine canvas...</div>
+        <div className="text-center py-20 text-slate-400 text-sm font-medium">Generating routine image...</div>
       ) : schedules.length > 0 ? (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-1">
-            <span className="text-xs text-slate-500 font-medium">
-              Found <strong className="text-slate-900">{schedules.length}</strong> classes
-            </span>
+        <div className="space-y-6 text-center">
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            Your Routine Is Ready To Download!
+          </h2>
+
+          {/* Routine Image Card Preview (Mobile Exact Fit) */}
+          <div className="max-w-3xl mx-auto bg-slate-100 p-2 sm:p-3 rounded-2xl border border-slate-200 shadow-md">
+            {previewImage ? (
+              <img
+                src={previewImage}
+                alt="Routine Preview"
+                className="w-full h-auto rounded-xl object-contain shadow"
+              />
+            ) : (
+              <div className="py-24 text-slate-400 text-xs font-semibold animate-pulse">
+                Preparing mobile image view...
+              </div>
+            )}
+          </div>
+
+          <p className="text-slate-500 text-xs sm:text-sm font-medium">
+            Click to Download button or Regenerate the routine
+          </p>
+
+          {/* Action Buttons (Red Download & Light Regenerate) */}
+          <div className="flex justify-center items-center gap-3 pt-1">
             <button
               onClick={handleDownloadJPG}
               disabled={exporting}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold text-xs shadow-md transition-all flex items-center gap-1.5"
+              className="px-8 py-3.5 bg-[#FF4D4D] hover:bg-[#E03E3E] text-white font-extrabold text-sm sm:text-base rounded-xl shadow-lg transition-all active:scale-95 min-w-[140px]"
             >
-              <span>📥</span> {exporting ? 'Generating...' : 'Download Routine'}
+              {exporting ? 'Saving...' : 'Download'}
             </button>
-          </div>
 
-          {/* 1. Fully Responsive Screen Container with Horizontal Scrollbar for Mobile */}
-          <div className="w-full overflow-x-auto bg-[#E8F5F3] border border-teal-200/80 rounded-2xl md:rounded-[32px] p-3 md:p-6 shadow-xl">
-            <div className="min-w-[950px] space-y-4">
-              {renderGridContent(false)}
-            </div>
-          </div>
-
-          {/* 2. Hidden High-Resolution Desktop Canvas (Dedicated for Clean Downloads) */}
-          <div className="absolute top-[-9999px] left-[-9999px] pointer-events-none opacity-0">
-            <div
-              ref={exportRef}
-              style={{ width: '1350px' }}
-              className="bg-[#E8F5F3] p-8 flex flex-col justify-between box-border rounded-[32px]"
+            <button
+              onClick={() => handleSearch(query)}
+              className="px-8 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-sm sm:text-base rounded-xl shadow border border-slate-200 transition-all active:scale-95"
             >
-              {renderGridContent(true)}
-            </div>
+              Regenerate
+            </button>
           </div>
         </div>
       ) : (
@@ -374,6 +294,111 @@ export default function RoutinePage() {
           </div>
         )
       )}
+
+      {/* Hidden Master Engine Element for Image Generation */}
+      <div className="absolute top-[-9999px] left-[-9999px] pointer-events-none opacity-0">
+        <div
+          ref={exportRef}
+          style={{ width: '1280px' }}
+          className="bg-[#00B589] p-6 text-white space-y-4 box-border font-sans rounded-3xl"
+        >
+          {/* Header Banner */}
+          <div className="flex justify-between items-center pb-2">
+            <div className="flex items-center gap-3">
+              <span className="px-3 py-1 bg-white/20 text-white text-xs font-bold rounded-lg border border-white/30">
+                Effective From: 12 september 2026
+              </span>
+              {searchMeta.type === 'batch' ? (
+                <div className="flex items-center gap-4 bg-white/20 px-4 py-1 rounded-full border border-white/30 text-white font-black text-sm">
+                  <span>Section: {searchMeta.section}</span>
+                  <span>Batch: {searchMeta.batch}</span>
+                </div>
+              ) : (
+                <div className="bg-white/20 px-4 py-1 rounded-full border border-white/30 text-white font-black text-sm">
+                  Faculty: {searchMeta.teacher}
+                </div>
+              )}
+            </div>
+            <div className="text-right">
+              <h1 className="text-lg font-black uppercase tracking-tight text-white">
+                Department of Software Engineering
+              </h1>
+            </div>
+          </div>
+
+          {/* Timetable Grid */}
+          <div className="grid grid-cols-8 gap-2">
+            <div className="flex items-center justify-center font-bold text-white/80 text-xs uppercase">
+              Time
+            </div>
+            {DAYS.map((day) => (
+              <div
+                key={day}
+                className="bg-[#FF6B5B] text-white font-extrabold text-xs py-2 text-center rounded-full shadow"
+              >
+                {day}
+              </div>
+            ))}
+
+            {TIME_SLOTS.map((slot) => (
+              <React.Fragment key={slot}>
+                <div className="flex items-center justify-center font-extrabold text-white text-[11px] text-center leading-tight">
+                  {slot}
+                </div>
+
+                {DAYS.map((day) => {
+                  const matchedClasses = getScheduleForSlot(day, slot);
+                  const hasClass = matchedClasses.length > 0;
+
+                  return (
+                    <div
+                      key={`${day}-${slot}`}
+                      className={`rounded-2xl border p-2 min-h-[90px] flex flex-col justify-between ${
+                        hasClass
+                          ? 'bg-white text-slate-900 border-white shadow-sm'
+                          : 'bg-white/10 border-white/20'
+                      }`}
+                    >
+                      <div className={`text-[9px] font-bold text-center ${hasClass ? 'text-[#FF6B5B]' : 'text-white/60'}`}>
+                        {slot}
+                      </div>
+
+                      {hasClass ? (
+                        matchedClasses.map((item, idx) => {
+                          const { codeOnly, fullName } = parseCourseDetails(item.course_code);
+                          return (
+                            <div key={idx} className="text-center my-auto space-y-0.5">
+                              <div className="font-bold text-[10px] text-slate-900 leading-tight">
+                                {fullName}
+                              </div>
+                              <div className="text-[9px] text-slate-600 font-bold">
+                                {codeOnly} {searchMeta.type === 'batch' ? `- ${item.teacher_initial}` : ''}
+                              </div>
+                              <div className="text-[9px] text-teal-800 font-extrabold">
+                                Room: {item.room}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="h-full" />
+                      )}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* Image Footer */}
+          <div className="flex justify-between items-center text-xs font-bold text-white/90 pt-2 border-t border-white/20">
+            <span>DiuRoutine.com</span>
+            <span className="px-3 py-1 bg-white/20 rounded-full text-white text-[10px]">
+              Generated from: diuroutine.com
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
