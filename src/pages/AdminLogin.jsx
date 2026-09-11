@@ -15,13 +15,16 @@ export default function AdminLogin() {
     setErrorMsg('');
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
       });
 
       if (error) throw error;
-      navigate('/admin');
+
+      if (data?.session) {
+        navigate('/admin', { replace: true });
+      }
     } catch (err) {
       setErrorMsg(err.message || 'Failed to authenticate.');
     } finally {
@@ -30,22 +33,24 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center p-4">
-      <div className="bg-white border rounded-2xl p-8 shadow-lg max-w-md w-full space-y-6">
+    <div className="min-h-[75vh] flex items-center justify-center p-4">
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-8 shadow-xl max-w-md w-full space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Admin Login</h1>
-          <p className="text-sm text-gray-500">Sign in to manage routine database</p>
+          <h1 className="text-2xl font-bold text-slate-900">Admin Login</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Sign in to access and manage the master routine database
+          </p>
         </div>
 
         {errorMsg && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg">
+          <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl font-medium">
             {errorMsg}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Email Address
             </label>
             <input
@@ -53,13 +58,13 @@ export default function AdminLogin() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@diu.edu.bd"
-              className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-slate-800 outline-none"
+              className="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Password
             </label>
             <input
@@ -67,7 +72,7 @@ export default function AdminLogin() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-slate-800 outline-none"
+              className="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all"
               required
             />
           </div>
@@ -75,10 +80,10 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-2.5 rounded-lg text-white font-medium text-sm transition-all ${
+            className={`w-full py-3 rounded-xl text-white font-bold text-sm transition-all shadow-md ${
               loading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-slate-800 hover:bg-slate-900 shadow'
+                ? 'bg-slate-400 cursor-not-allowed'
+                : 'bg-slate-900 hover:bg-slate-800 active:scale-[0.99]'
             }`}
           >
             {loading ? 'Authenticating...' : 'Sign In'}
