@@ -160,8 +160,8 @@ export default function RoutinePage() {
 
     try {
       const dataUrl = await toJpeg(exportRef.current, {
-        quality: 0.98,
-        pixelRatio: 2,
+        quality: 1.0,
+        pixelRatio: 3, // High DPI HD Export
         backgroundColor: '#E8F5F3',
       });
 
@@ -180,24 +180,24 @@ export default function RoutinePage() {
   const renderGridContent = (isExportCanvas = false) => (
     <>
       {/* Top Banner */}
-      <div className="flex flex-wrap justify-between items-center gap-3 pb-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="px-3 py-1 bg-white border border-slate-300/80 rounded-xl text-[10px] md:text-xs font-semibold text-slate-700 shadow-sm">
+      <div className="flex flex-wrap justify-between items-center gap-3 pb-3 border-b border-teal-200/60 mb-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="px-3.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700 shadow-sm">
             Effective From: 12 september 2026
           </div>
 
           {searchMeta.type === 'batch' ? (
-            <div className="flex items-center gap-3 md:gap-6 bg-white px-4 md:px-6 py-1.5 border border-slate-200 rounded-full shadow-sm">
-              <span className="text-sm md:text-xl font-black text-slate-800">
+            <div className="flex items-center gap-4 bg-white px-5 py-1.5 border border-slate-200 rounded-full shadow-sm">
+              <span className={`${isExportCanvas ? 'text-lg' : 'text-sm md:text-lg'} font-black text-slate-800`}>
                 Section: <span className="text-teal-700">{searchMeta.section}</span>
               </span>
-              <span className="text-sm md:text-xl font-black text-slate-800">
+              <span className={`${isExportCanvas ? 'text-lg' : 'text-sm md:text-lg'} font-black text-slate-800`}>
                 Batch: <span className="text-teal-700">{searchMeta.batch}</span>
               </span>
             </div>
           ) : (
             <div className="bg-white px-5 py-1.5 border border-slate-200 rounded-full shadow-sm">
-              <span className="text-sm md:text-xl font-black text-slate-800">
+              <span className={`${isExportCanvas ? 'text-lg' : 'text-sm md:text-lg'} font-black text-slate-800`}>
                 Faculty: <span className="text-teal-700">{searchMeta.teacher}</span>
               </span>
             </div>
@@ -205,22 +205,24 @@ export default function RoutinePage() {
         </div>
 
         <div>
-          <h1 className="text-base md:text-2xl font-black text-teal-800 tracking-tight">
+          <h1 className={`${isExportCanvas ? 'text-xl' : 'text-base md:text-xl'} font-black text-teal-900 tracking-tight`}>
             Department of Software Engineering
           </h1>
         </div>
       </div>
 
       {/* Grid Table */}
-      <div className={`grid grid-cols-8 gap-1 md:gap-2.5 ${isExportCanvas ? 'h-[580px] my-auto' : 'w-full'}`}>
-        <div className="flex items-center justify-center font-bold text-slate-400 text-[9px] md:text-xs">
+      <div className={`grid grid-cols-8 gap-2.5 ${isExportCanvas ? 'w-full my-auto' : 'w-full'}`}>
+        <div className={`flex items-center justify-center font-bold text-slate-500 uppercase tracking-wider ${isExportCanvas ? 'text-xs' : 'text-[10px] md:text-xs'}`}>
           TIME
         </div>
 
         {DAYS.map((day) => (
           <div
             key={day}
-            className="bg-[#FF6B5B] text-white rounded-full flex items-center justify-center font-extrabold text-[10px] md:text-base shadow-sm h-[28px] md:h-[38px] truncate px-1"
+            className={`bg-[#FF6B5B] text-white rounded-full flex items-center justify-center font-extrabold shadow-sm truncate px-1 ${
+              isExportCanvas ? 'h-[36px] text-sm' : 'h-[32px] md:h-[38px] text-xs md:text-sm'
+            }`}
           >
             {day}
           </div>
@@ -228,7 +230,7 @@ export default function RoutinePage() {
 
         {TIME_SLOTS.map((slot) => (
           <React.Fragment key={slot}>
-            <div className="flex items-center justify-center font-extrabold text-[8px] md:text-xs text-slate-800 text-center leading-tight">
+            <div className={`flex items-center justify-center font-extrabold text-slate-800 text-center leading-tight ${isExportCanvas ? 'text-xs' : 'text-[10px] md:text-xs'}`}>
               {slot}
             </div>
 
@@ -239,15 +241,17 @@ export default function RoutinePage() {
               return (
                 <div
                   key={`${day}-${slot}`}
-                  className={`rounded-xl md:rounded-2xl border flex flex-col justify-between p-1 md:p-1.5 transition-all ${
-                    isExportCanvas ? '' : 'min-h-[75px] md:min-h-[95px]'
+                  className={`rounded-2xl border flex flex-col justify-between p-2 transition-all ${
+                    isExportCanvas
+                      ? 'min-h-[105px]'
+                      : 'min-h-[90px] md:min-h-[100px]'
                   } ${
                     hasClass
                       ? 'bg-[#D1EFEA] border-teal-300 shadow-sm'
                       : 'bg-[#DFF1EE]/50 border-teal-100/60'
                   }`}
                 >
-                  <div className="text-[7px] md:text-[9px] font-bold text-[#FF6B5B] text-center tracking-tight">
+                  <div className={`font-bold text-[#FF6B5B] text-center tracking-tight ${isExportCanvas ? 'text-[10px]' : 'text-[9px] md:text-[10px]'}`}>
                     {slot}
                   </div>
 
@@ -255,14 +259,14 @@ export default function RoutinePage() {
                     matchedClasses.map((item, idx) => {
                       const { codeOnly, fullName } = parseCourseDetails(item.course_code);
                       return (
-                        <div key={idx} className="text-center my-auto px-0.5">
-                          <div className="text-[8px] md:text-[10px] font-bold text-slate-900 leading-tight">
+                        <div key={idx} className="text-center my-auto space-y-0.5">
+                          <div className={`font-bold text-slate-900 leading-tight ${isExportCanvas ? 'text-xs' : 'text-[10px] md:text-xs'}`}>
                             {fullName}
                           </div>
-                          <div className="text-[7px] md:text-[9px] text-slate-600 font-semibold mt-0.5">
+                          <div className={`text-slate-700 font-bold ${isExportCanvas ? 'text-[11px]' : 'text-[9px] md:text-[10px]'}`}>
                             {codeOnly} {searchMeta.type === 'batch' ? `- ${item.teacher_initial}` : ''}
                           </div>
-                          <div className="text-[7px] md:text-[9px] text-slate-600 font-semibold">
+                          <div className={`text-teal-800 font-extrabold ${isExportCanvas ? 'text-[11px]' : 'text-[9px] md:text-[10px]'}`}>
                             Room: {item.room}
                           </div>
                         </div>
@@ -279,9 +283,9 @@ export default function RoutinePage() {
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between items-center pt-2 border-t border-teal-200/60 text-[9px] md:text-[11px] font-bold text-slate-600">
+      <div className="flex justify-between items-center pt-3 border-t border-teal-200/60 text-xs font-bold text-slate-600 mt-2">
         <span>sweroutine.com</span>
-        <span className="px-3 py-0.5 bg-white rounded-full border border-slate-200 text-slate-600 font-medium text-[8px] md:text-[10px] shadow-sm">
+        <span className="px-3 py-1 bg-white rounded-full border border-slate-200 text-slate-600 font-medium text-xs shadow-sm">
           Generated from: sweroutine.com
         </span>
       </div>
@@ -342,17 +346,19 @@ export default function RoutinePage() {
             </button>
           </div>
 
-          {/* 1. Fully Responsive Screen Container */}
-          <div className="w-full overflow-x-auto bg-[#E8F5F3] border border-teal-200/80 rounded-2xl md:rounded-[32px] p-3 md:p-6 shadow-xl space-y-4">
-            {renderGridContent(false)}
+          {/* 1. Fully Responsive Screen Container with Horizontal Scrollbar for Mobile */}
+          <div className="w-full overflow-x-auto bg-[#E8F5F3] border border-teal-200/80 rounded-2xl md:rounded-[32px] p-3 md:p-6 shadow-xl">
+            <div className="min-w-[950px] space-y-4">
+              {renderGridContent(false)}
+            </div>
           </div>
 
-          {/* 2. Hidden Fixed High-Res Canvas (Used solely for JPG rendering) */}
+          {/* 2. Hidden High-Resolution Desktop Canvas (Dedicated for Clean Downloads) */}
           <div className="absolute top-[-9999px] left-[-9999px] pointer-events-none opacity-0">
             <div
               ref={exportRef}
-              style={{ width: '1280px', height: '720px' }}
-              className="bg-[#E8F5F3] p-6 flex flex-col justify-between box-border"
+              style={{ width: '1350px' }}
+              className="bg-[#E8F5F3] p-8 flex flex-col justify-between box-border rounded-[32px]"
             >
               {renderGridContent(true)}
             </div>
