@@ -71,24 +71,23 @@ export default function RoutinePage() {
     }
   }, [query]);
 
-  // Auto-generate preview image as soon as schedule data is loaded
+  // Instant image generation directly from exact previous design
   useEffect(() => {
     if (schedules.length > 0 && exportRef.current) {
-      const generatePreview = async () => {
+      const renderInstantPreview = async () => {
         try {
-          // Slight delay to ensure DOM styling is rendered
-          await new Promise((res) => setTimeout(res, 200));
+          await new Promise((resolve) => setTimeout(resolve, 50));
           const dataUrl = await toJpeg(exportRef.current, {
-            quality: 0.95,
+            quality: 0.98,
             pixelRatio: 2,
-            backgroundColor: '#00B589',
+            backgroundColor: '#E8F5F3',
           });
           setPreviewImage(dataUrl);
         } catch (err) {
-          console.error('Failed to generate preview image:', err);
+          console.error('Instant image preview error:', err);
         }
       };
-      generatePreview();
+      renderInstantPreview();
     }
   }, [schedules]);
 
@@ -185,8 +184,8 @@ export default function RoutinePage() {
     try {
       const dataUrl = await toJpeg(exportRef.current, {
         quality: 1.0,
-        pixelRatio: 3, // Ultra High Quality
-        backgroundColor: '#00B589',
+        pixelRatio: 3,
+        backgroundColor: '#E8F5F3',
       });
 
       const link = document.createElement('a');
@@ -202,8 +201,8 @@ export default function RoutinePage() {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4 sm:p-6 space-y-6 font-sans text-slate-900">
-      {/* Search Bar */}
+    <div className="w-full max-w-7xl mx-auto p-2 sm:p-4 md:p-8 space-y-6 font-sans text-slate-900">
+      {/* Search Header */}
       <div className="max-w-xl mx-auto space-y-3">
         <form onSubmit={onSubmit} className="flex gap-2">
           <input
@@ -211,11 +210,11 @@ export default function RoutinePage() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search Teacher (e.g. SK) or Batch+Section (e.g. 43c)..."
-            className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-900 placeholder-slate-400 rounded-2xl shadow-sm focus:ring-2 focus:ring-teal-500 outline-none text-sm"
+            className="w-full px-4 py-3 bg-white border border-slate-200 text-slate-900 placeholder-slate-400 rounded-2xl shadow-sm focus:ring-2 focus:ring-teal-500 outline-none text-xs md:text-sm"
           />
           <button
             type="submit"
-            className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-2xl shadow-sm text-sm whitespace-nowrap"
+            className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-2xl shadow-sm text-xs md:text-sm whitespace-nowrap"
           >
             Search
           </button>
@@ -238,50 +237,30 @@ export default function RoutinePage() {
         </div>
       </div>
 
-      {/* Main Content Area */}
-      {loading ? (
-        <div className="text-center py-20 text-slate-400 text-sm font-medium">Generating routine image...</div>
-      ) : schedules.length > 0 ? (
-        <div className="space-y-6 text-center">
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Your Routine Is Ready To Download!
-          </h2>
-
-          {/* Routine Image Card Preview (Mobile Exact Fit) */}
-          <div className="max-w-3xl mx-auto bg-slate-100 p-2 sm:p-3 rounded-2xl border border-slate-200 shadow-md">
-            {previewImage ? (
-              <img
-                src={previewImage}
-                alt="Routine Preview"
-                className="w-full h-auto rounded-xl object-contain shadow"
-              />
-            ) : (
-              <div className="py-24 text-slate-400 text-xs font-semibold animate-pulse">
-                Preparing mobile image view...
-              </div>
-            )}
-          </div>
-
-          <p className="text-slate-500 text-xs sm:text-sm font-medium">
-            Click to Download button or Regenerate the routine
-          </p>
-
-          {/* Action Buttons (Red Download & Light Regenerate) */}
-          <div className="flex justify-center items-center gap-3 pt-1">
+      {loading ? null : schedules.length > 0 ? (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-xs text-slate-500 font-medium">
+              Found <strong className="text-slate-900">{schedules.length}</strong> classes
+            </span>
             <button
               onClick={handleDownloadJPG}
               disabled={exporting}
-              className="px-8 py-3.5 bg-[#FF4D4D] hover:bg-[#E03E3E] text-white font-extrabold text-sm sm:text-base rounded-xl shadow-lg transition-all active:scale-95 min-w-[140px]"
+              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
             >
-              {exporting ? 'Saving...' : 'Download'}
+              <span>📥</span> {exporting ? 'Downloading...' : 'Download Routine'}
             </button>
+          </div>
 
-            <button
-              onClick={() => handleSearch(query)}
-              className="px-8 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-sm sm:text-base rounded-xl shadow border border-slate-200 transition-all active:scale-95"
-            >
-              Regenerate
-            </button>
+          {/* Exact Responsive Mobile Image View without Extra Text */}
+          <div className="w-full bg-[#E8F5F3] border border-teal-200/80 rounded-2xl md:rounded-[32px] p-2 sm:p-4 shadow-xl">
+            {previewImage && (
+              <img
+                src={previewImage}
+                alt="Routine"
+                className="w-full h-auto rounded-xl object-contain shadow-sm"
+              />
+            )}
           </div>
         </div>
       ) : (
@@ -295,46 +274,55 @@ export default function RoutinePage() {
         )
       )}
 
-      {/* Hidden Master Engine Element for Image Generation */}
+      {/* Hidden Original Exact Routine Layout Engine */}
       <div className="absolute top-[-9999px] left-[-9999px] pointer-events-none opacity-0">
         <div
           ref={exportRef}
           style={{ width: '1280px' }}
-          className="bg-[#00B589] p-6 text-white space-y-4 box-border font-sans rounded-3xl"
+          className="bg-[#E8F5F3] p-6 space-y-4 box-border rounded-[32px] border border-teal-200"
         >
-          {/* Header Banner */}
-          <div className="flex justify-between items-center pb-2">
+          {/* Exact Original Top Banner */}
+          <div className="flex justify-between items-center pb-1">
             <div className="flex items-center gap-3">
-              <span className="px-3 py-1 bg-white/20 text-white text-xs font-bold rounded-lg border border-white/30">
+              <div className="px-3 py-1 bg-white border border-slate-300/80 rounded-xl text-xs font-semibold text-slate-700 shadow-sm">
                 Effective From: 12 september 2026
-              </span>
+              </div>
+
               {searchMeta.type === 'batch' ? (
-                <div className="flex items-center gap-4 bg-white/20 px-4 py-1 rounded-full border border-white/30 text-white font-black text-sm">
-                  <span>Section: {searchMeta.section}</span>
-                  <span>Batch: {searchMeta.batch}</span>
+                <div className="flex items-center gap-6 bg-white px-6 py-1.5 border border-slate-200 rounded-full shadow-sm">
+                  <span className="text-xl font-black text-slate-800">
+                    Section: <span className="text-teal-700">{searchMeta.section}</span>
+                  </span>
+                  <span className="text-xl font-black text-slate-800">
+                    Batch: <span className="text-teal-700">{searchMeta.batch}</span>
+                  </span>
                 </div>
               ) : (
-                <div className="bg-white/20 px-4 py-1 rounded-full border border-white/30 text-white font-black text-sm">
-                  Faculty: {searchMeta.teacher}
+                <div className="bg-white px-5 py-1.5 border border-slate-200 rounded-full shadow-sm">
+                  <span className="text-xl font-black text-slate-800">
+                    Faculty: <span className="text-teal-700">{searchMeta.teacher}</span>
+                  </span>
                 </div>
               )}
             </div>
-            <div className="text-right">
-              <h1 className="text-lg font-black uppercase tracking-tight text-white">
+
+            <div>
+              <h1 className="text-2xl font-black text-teal-800 tracking-tight">
                 Department of Software Engineering
               </h1>
             </div>
           </div>
 
-          {/* Timetable Grid */}
-          <div className="grid grid-cols-8 gap-2">
-            <div className="flex items-center justify-center font-bold text-white/80 text-xs uppercase">
-              Time
+          {/* Exact Original Routine Grid Design */}
+          <div className="grid grid-cols-8 gap-2.5 w-full">
+            <div className="flex items-center justify-center font-bold text-slate-400 text-xs uppercase">
+              TIME
             </div>
+
             {DAYS.map((day) => (
               <div
                 key={day}
-                className="bg-[#FF6B5B] text-white font-extrabold text-xs py-2 text-center rounded-full shadow"
+                className="bg-[#FF6B5B] text-white rounded-full flex items-center justify-center font-extrabold text-base shadow-sm h-[38px] truncate px-1"
               >
                 {day}
               </div>
@@ -342,7 +330,7 @@ export default function RoutinePage() {
 
             {TIME_SLOTS.map((slot) => (
               <React.Fragment key={slot}>
-                <div className="flex items-center justify-center font-extrabold text-white text-[11px] text-center leading-tight">
+                <div className="flex items-center justify-center font-extrabold text-xs text-slate-800 text-center leading-tight">
                   {slot}
                 </div>
 
@@ -353,13 +341,13 @@ export default function RoutinePage() {
                   return (
                     <div
                       key={`${day}-${slot}`}
-                      className={`rounded-2xl border p-2 min-h-[90px] flex flex-col justify-between ${
+                      className={`rounded-2xl border flex flex-col justify-between p-1.5 min-h-[95px] ${
                         hasClass
-                          ? 'bg-white text-slate-900 border-white shadow-sm'
-                          : 'bg-white/10 border-white/20'
+                          ? 'bg-[#D1EFEA] border-teal-300 shadow-sm'
+                          : 'bg-[#DFF1EE]/50 border-teal-100/60'
                       }`}
                     >
-                      <div className={`text-[9px] font-bold text-center ${hasClass ? 'text-[#FF6B5B]' : 'text-white/60'}`}>
+                      <div className="text-[9px] font-bold text-[#FF6B5B] text-center tracking-tight">
                         {slot}
                       </div>
 
@@ -367,14 +355,14 @@ export default function RoutinePage() {
                         matchedClasses.map((item, idx) => {
                           const { codeOnly, fullName } = parseCourseDetails(item.course_code);
                           return (
-                            <div key={idx} className="text-center my-auto space-y-0.5">
-                              <div className="font-bold text-[10px] text-slate-900 leading-tight">
+                            <div key={idx} className="text-center my-auto px-0.5">
+                              <div className="text-[10px] font-bold text-slate-900 leading-tight">
                                 {fullName}
                               </div>
-                              <div className="text-[9px] text-slate-600 font-bold">
+                              <div className="text-[9px] text-slate-600 font-semibold mt-0.5">
                                 {codeOnly} {searchMeta.type === 'batch' ? `- ${item.teacher_initial}` : ''}
                               </div>
-                              <div className="text-[9px] text-teal-800 font-extrabold">
+                              <div className="text-[9px] text-slate-600 font-semibold">
                                 Room: {item.room}
                               </div>
                             </div>
@@ -390,11 +378,11 @@ export default function RoutinePage() {
             ))}
           </div>
 
-          {/* Image Footer */}
-          <div className="flex justify-between items-center text-xs font-bold text-white/90 pt-2 border-t border-white/20">
-            <span>DiuRoutine.com</span>
-            <span className="px-3 py-1 bg-white/20 rounded-full text-white text-[10px]">
-              Generated from: diuroutine.com
+          {/* Exact Original Footer */}
+          <div className="flex justify-between items-center pt-2 border-t border-teal-200/60 text-[11px] font-bold text-slate-600">
+            <span>sweroutine.com</span>
+            <span className="px-3 py-0.5 bg-white rounded-full border border-slate-200 text-slate-600 font-medium text-[10px] shadow-sm">
+              Generated from: sweroutine.com
             </span>
           </div>
         </div>
