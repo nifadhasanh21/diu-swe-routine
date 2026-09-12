@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { toJpeg } from 'html-to-image';
@@ -109,6 +109,9 @@ const TIME_SLOTS = [
   '4:00 - 5:30',
 ];
 
+// Fixed natural width of the routine grid (used for export + scale-to-fit math)
+const ROUTINE_WIDTH = 1380;
+
 const cacheStore = new Map();
 
 const normalizeTime = (rawTime) => {
@@ -136,54 +139,50 @@ export default function RoutinePage() {
   const [searchInput, setSearchInput] = useState(query);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [previewImage, setPreviewImage] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [searchMeta, setSearchMeta] = useState({ batch: '', section: '', teacher: '', type: '' });
 
+  // Scale-to-fit state for the live (non-image) preview.
+  // The routine grid itself is always rendered at full 1380px width so
+  // html-to-image captures it at full resolution on download; we only
+  // visually shrink it with a CSS transform so it fits smaller screens.
+  const [previewScale, setPreviewScale] = useState(1);
+  const [previewHeight, setPreviewHeight] = useState(0);
+
   const exportRef = useRef(null);
+  const previewWrapperRef = useRef(null);
 
   useEffect(() => {
     if (query) {
       handleSearch(query);
     } else {
       setSchedules([]);
-      setPreviewImage(null);
     }
   }, [query]);
 
-  // Clean and accurate Image preview generator
-  useEffect(() => {
-    let isCurrent = true;
+  // Live scale-to-fit: no image generation involved, so this is effectively
+  // instant (just a resize measurement), unlike the old toJpeg-based preview.
+  // Runs in useLayoutEffect (before paint) so there's no flash of full-size
+  // content before the scale is applied.
+  useLayoutEffect(() => {
+    if (schedules.length === 0) return;
 
-    if (schedules.length > 0 && exportRef.current) {
-      // Force UI reset first to avoid showing previous routine preview
-      setPreviewImage(null);
+    const wrapperEl = previewWrapperRef.current;
+    const contentEl = exportRef.current;
+    if (!wrapperEl || !contentEl) return;
 
-      const animationFrame = requestAnimationFrame(() => {
-        setTimeout(async () => {
-          if (!exportRef.current || !isCurrent) return;
-          try {
-            const dataUrl = await toJpeg(exportRef.current, {
-              quality: 0.92,
-              pixelRatio: 1.5,
-              backgroundColor: '#E8F5F3',
-              cacheBust: true,
-            });
+    const updateScale = () => {
+      const availableWidth = wrapperEl.offsetWidth;
+      const newScale = availableWidth > 0 ? Math.min(availableWidth / ROUTINE_WIDTH, 1) : 1;
+      setPreviewScale(newScale);
+      setPreviewHeight(contentEl.offsetHeight * newScale);
+    };
 
-            if (isCurrent) {
-              setPreviewImage(dataUrl);
-            }
-          } catch (err) {
-            console.error('Preview error:', err);
-          }
-        }, 80);
-      });
+    updateScale();
 
-      return () => {
-        isCurrent = false;
-        cancelAnimationFrame(animationFrame);
-      };
-    }
+    const resizeObserver = new ResizeObserver(updateScale);
+    resizeObserver.observe(wrapperEl);
+    return () => resizeObserver.disconnect();
   }, [schedules, searchMeta]);
 
   const handleSearch = async (searchTerm) => {
@@ -191,9 +190,6 @@ export default function RoutinePage() {
     if (!rawInput) return;
 
     const cacheKey = rawInput.toLowerCase();
-
-    // Reset preview instantly when new search triggers
-    setPreviewImage(null);
 
     if (cacheStore.has(cacheKey)) {
       const cached = cacheStore.get(cacheKey);
@@ -328,7 +324,7 @@ export default function RoutinePage() {
   const renderRoutineContent = () => (
     <div
       ref={exportRef}
-      style={{ width: '1380px' }}
+      style={{ width: `${ROUTINE_WIDTH}px` }}
       className="bg-[#E8F5F3] p-6 space-y-4 box-border rounded-[32px] border border-teal-200"
     >
       {/* Top Banner */}
@@ -492,25 +488,48 @@ export default function RoutinePage() {
             </p>
           </div>
 
-          {/* Interactive Screen Preview */}
-          <div className="w-full bg-[#E8F5F3] border border-teal-200/80 rounded-2xl p-2 sm:p-3 shadow-inner flex justify-center items-center overflow-hidden min-h-[260px]">
-            {previewImage ? (
-              <img
-                key={query}
-                src={previewImage}
-                alt="Routine Preview"
-                className="w-full h-auto object-contain rounded-xl shadow-sm animate-fadeIn"
-              />
-            ) : (
-              <div className="py-12 text-xs text-teal-800 font-medium">Rendering routine...</div>
-            )}
+          {/*
+            Live preview: the real routine grid, scaled to fit with a CSS
+            transform. No image conversion happens here, so this renders
+            essentially instantly instead of waiting on a toJpeg pass.
+
+            Important: `transform: scale()` only changes how the element is
+            painted, not the space it takes up in layout — the inner div is
+            still 1380px wide as far as the layout engine is concerned. So we
+            wrap it in an outer box sized to the *actual scaled* dimensions
+            (ROUTINE_WIDTH * scale) and center that box instead. Otherwise
+            centering the unscaled 1380px box makes it spill out unevenly
+            (crops one side, leaves dead space on the other) — which is
+            exactly the bug this fixes.
+          */}
+          <div
+            ref={previewWrapperRef}
+            className="w-full bg-[#E8F5F3] border border-teal-200/80 rounded-2xl p-2 sm:p-3 shadow-inner overflow-hidden"
+          >
+            <div
+              className="mx-auto overflow-hidden"
+              style={{
+                width: `${ROUTINE_WIDTH * previewScale}px`,
+                height: previewHeight ? `${previewHeight}px` : undefined,
+              }}
+            >
+              <div
+                style={{
+                  width: `${ROUTINE_WIDTH}px`,
+                  transform: `scale(${previewScale})`,
+                  transformOrigin: 'top left',
+                }}
+              >
+                {renderRoutineContent()}
+              </div>
+            </div>
           </div>
 
           {/* Action Button */}
           <div className="flex justify-center pt-2">
             <button
               onClick={handleDownloadJPG}
-              disabled={exporting || !previewImage}
+              disabled={exporting}
               className="w-full sm:w-auto px-8 py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2"
             >
               <span>📥</span> {exporting ? 'Downloading...' : 'Download Routine'}
@@ -527,11 +546,6 @@ export default function RoutinePage() {
           </div>
         )
       )}
-
-      {/* Synchronized hidden DOM container for precise generation */}
-      <div className="absolute top-[-9999px] left-[-9999px] pointer-events-none opacity-0">
-        {renderRoutineContent()}
-      </div>
     </div>
   );
 }
