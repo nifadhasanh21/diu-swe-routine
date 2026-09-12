@@ -109,6 +109,8 @@ const TIME_SLOTS = [
   '4:00 - 5:30',
 ];
 
+const cacheStore = new Map();
+
 const normalizeTime = (rawTime) => {
   if (!rawTime) return '';
   let str = rawTime.toString().trim().replace(/\s+/g, '').replace(/\./g, ':');
@@ -149,32 +151,59 @@ export default function RoutinePage() {
     }
   }, [query]);
 
+  // Clean and accurate Image preview generator
   useEffect(() => {
+    let isCurrent = true;
+
     if (schedules.length > 0 && exportRef.current) {
-      const renderInstantPreview = async () => {
-        try {
-          await new Promise((resolve) => setTimeout(resolve, 150));
-          if (!exportRef.current) return;
-          const dataUrl = await toJpeg(exportRef.current, {
-            quality: 0.98,
-            pixelRatio: 2,
-            backgroundColor: '#E8F5F3',
-          });
-          setPreviewImage(dataUrl);
-        } catch (err) {
-          console.error('Instant image preview error:', err);
-        }
+      // Force UI reset first to avoid showing previous routine preview
+      setPreviewImage(null);
+
+      const animationFrame = requestAnimationFrame(() => {
+        setTimeout(async () => {
+          if (!exportRef.current || !isCurrent) return;
+          try {
+            const dataUrl = await toJpeg(exportRef.current, {
+              quality: 0.92,
+              pixelRatio: 1.5,
+              backgroundColor: '#E8F5F3',
+              cacheBust: true,
+            });
+
+            if (isCurrent) {
+              setPreviewImage(dataUrl);
+            }
+          } catch (err) {
+            console.error('Preview error:', err);
+          }
+        }, 80);
+      });
+
+      return () => {
+        isCurrent = false;
+        cancelAnimationFrame(animationFrame);
       };
-      renderInstantPreview();
     }
-  }, [schedules]);
+  }, [schedules, searchMeta]);
 
   const handleSearch = async (searchTerm) => {
     const rawInput = searchTerm.trim();
     if (!rawInput) return;
 
-    setLoading(true);
+    const cacheKey = rawInput.toLowerCase();
+
+    // Reset preview instantly when new search triggers
     setPreviewImage(null);
+
+    if (cacheStore.has(cacheKey)) {
+      const cached = cacheStore.get(cacheKey);
+      setSearchMeta(cached.meta);
+      setSchedules(cached.data);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const batchSecRegex = /^(\d{2,3})[\s-]*([a-zA-Z0-9]+)$/;
@@ -182,37 +211,38 @@ export default function RoutinePage() {
 
       let data = [];
       let error = null;
+      let meta = { batch: '', section: '', teacher: '', type: '' };
 
       if (batchMatch) {
         const batchNum = batchMatch[1];
         const sectionLetter = batchMatch[2].toUpperCase();
         const formattedPattern = `%-${batchNum}-${sectionLetter}%`;
 
-        setSearchMeta({
+        meta = {
           batch: batchNum,
           section: sectionLetter,
           teacher: '',
           type: 'batch',
-        });
+        };
 
         const response = await supabase
           .from('routine_schedules')
-          .select('*')
+          .select('course_code, teacher_initial, room, day, time_slot')
           .ilike('course_code', formattedPattern);
 
         data = response.data;
         error = response.error;
       } else {
-        setSearchMeta({
+        meta = {
           batch: '',
           section: '',
           teacher: rawInput.toUpperCase(),
           type: 'teacher',
-        });
+        };
 
         const response = await supabase
           .from('routine_schedules')
-          .select('*')
+          .select('course_code, teacher_initial, room, day, time_slot')
           .ilike('teacher_initial', rawInput);
 
         data = response.data;
@@ -220,7 +250,12 @@ export default function RoutinePage() {
       }
 
       if (error) throw error;
-      setSchedules(data || []);
+
+      const finalData = data || [];
+      setSearchMeta(meta);
+      setSchedules(finalData);
+
+      cacheStore.set(cacheKey, { meta, data: finalData });
     } catch (err) {
       console.error('Search error:', err.message);
       setSchedules([]);
@@ -275,6 +310,7 @@ export default function RoutinePage() {
         quality: 1.0,
         pixelRatio: 3,
         backgroundColor: '#E8F5F3',
+        cacheBust: true,
       });
 
       const link = document.createElement('a');
@@ -289,8 +325,124 @@ export default function RoutinePage() {
     }
   };
 
+  const renderRoutineContent = () => (
+    <div
+      ref={exportRef}
+      style={{ width: '1380px' }}
+      className="bg-[#E8F5F3] p-6 space-y-4 box-border rounded-[32px] border border-teal-200"
+    >
+      {/* Top Banner */}
+      <div className="flex justify-between items-center pb-1">
+        <div className="flex items-center gap-3">
+          <div className="px-3 py-1 bg-white border border-slate-300/80 rounded-xl text-xs font-semibold text-slate-700 shadow-sm">
+            Effective From: 12 september 2026
+          </div>
+
+          {searchMeta.type === 'batch' ? (
+            <div className="flex items-center gap-6 bg-white px-6 py-1.5 border border-slate-200 rounded-full shadow-sm">
+              <span className="text-xl font-black text-slate-800">
+                Section: <span className="text-teal-700">{searchMeta.section}</span>
+              </span>
+              <span className="text-xl font-black text-slate-800">
+                Batch: <span className="text-teal-700">{searchMeta.batch}</span>
+              </span>
+            </div>
+          ) : (
+            <div className="bg-white px-5 py-1.5 border border-slate-200 rounded-full shadow-sm">
+              <span className="text-xl font-black text-slate-800">
+                Faculty: <span className="text-teal-700">{searchMeta.teacher}</span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <h1 className="text-2xl font-black text-teal-800 tracking-tight">
+            Department of Software Engineering
+          </h1>
+        </div>
+      </div>
+
+      {/* Routine Grid Design */}
+      <div className="grid grid-cols-8 gap-2.5 w-full">
+        <div className="flex items-center justify-center font-bold text-slate-400 text-xs uppercase">
+          TIME
+        </div>
+
+        {DAYS.map((day) => (
+          <div
+            key={day}
+            className="bg-[#FF6B5B] text-white rounded-full flex items-center justify-center font-extrabold text-base shadow-sm h-[38px] truncate px-1"
+          >
+            {day}
+          </div>
+        ))}
+
+        {TIME_SLOTS.map((slot) => (
+          <React.Fragment key={slot}>
+            <div className="flex items-center justify-center font-extrabold text-xs text-slate-800 text-center leading-tight">
+              {slot}
+            </div>
+
+            {DAYS.map((day) => {
+              const matchedClasses = getScheduleForSlot(day, slot);
+              const hasClass = matchedClasses.length > 0;
+
+              return (
+                <div
+                  key={`${day}-${slot}`}
+                  className={`rounded-2xl border flex flex-col justify-between p-1.5 min-h-[95px] ${
+                    hasClass
+                      ? 'bg-[#D1EFEA] border-teal-300 shadow-sm'
+                      : 'bg-[#DFF1EE]/50 border-teal-100/60'
+                  }`}
+                >
+                  <div className="text-[9px] font-bold text-[#FF6B5B] text-center tracking-tight">
+                    {slot}
+                  </div>
+
+                  {hasClass ? (
+                    matchedClasses.map((item, idx) => {
+                      const { codeOnly, fullName } = parseCourseDetails(item.course_code);
+                      return (
+                        <div key={idx} className="text-center my-auto px-0.5">
+                          <div className="text-[10px] font-bold text-slate-900 leading-tight">
+                            {fullName}
+                          </div>
+                          <div className="text-[9px] text-slate-600 font-semibold mt-0.5">
+                            {codeOnly}{' '}
+                            {searchMeta.type === 'batch'
+                              ? `- ${item.teacher_initial}`
+                              : ''}
+                          </div>
+                          <div className="text-[9px] text-slate-600 font-semibold">
+                            Room: {item.room}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="h-full" />
+                  )}
+                </div>
+              );
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="flex justify-between items-center pt-2 border-t border-teal-200/60 text-[11px] font-bold text-slate-600">
+        <span>sweroutine.com</span>
+        <span className="px-3 py-0.5 bg-white rounded-full border border-slate-200 text-slate-600 font-medium text-[10px] shadow-sm">
+          Generated from: sweroutine.com
+        </span>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="w-full max-w-4xl mx-auto p-3 sm:p-6 space-y-6 font-sans text-slate-900">
+    <div className="w-full max-w-5xl mx-auto p-3 sm:p-6 space-y-6 font-sans text-slate-900">
       {/* Search Header */}
       <div className="max-w-xl mx-auto space-y-3">
         <form onSubmit={onSubmit} className="flex gap-2">
@@ -329,8 +481,7 @@ export default function RoutinePage() {
       {loading ? (
         <div className="text-center py-8 text-xs text-slate-500">Loading schedule...</div>
       ) : schedules.length > 0 ? (
-        /* diuroutine.com Style Clean Card Container */
-        <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5 max-w-2xl mx-auto">
+        <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5 max-w-4xl mx-auto">
           {/* Header Status Message */}
           <div className="text-center space-y-1">
             <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center justify-center gap-1.5">
@@ -341,20 +492,21 @@ export default function RoutinePage() {
             </p>
           </div>
 
-          {/* Mobile Optimized Image View Container */}
-          <div className="w-full bg-[#E8F5F3] border border-teal-200/80 rounded-2xl p-2 sm:p-3 shadow-inner flex justify-center items-center overflow-hidden">
+          {/* Interactive Screen Preview */}
+          <div className="w-full bg-[#E8F5F3] border border-teal-200/80 rounded-2xl p-2 sm:p-3 shadow-inner flex justify-center items-center overflow-hidden min-h-[260px]">
             {previewImage ? (
               <img
+                key={query}
                 src={previewImage}
                 alt="Routine Preview"
-                className="w-full h-auto max-h-[65vh] object-contain rounded-xl shadow-sm"
+                className="w-full h-auto object-contain rounded-xl shadow-sm animate-fadeIn"
               />
             ) : (
-              <div className="py-12 text-xs text-teal-800 font-medium">Generating routine preview...</div>
+              <div className="py-12 text-xs text-teal-800 font-medium">Rendering routine...</div>
             )}
           </div>
 
-          {/* Action Button Located Cleanly Below Image */}
+          {/* Action Button */}
           <div className="flex justify-center pt-2">
             <button
               onClick={handleDownloadJPG}
@@ -376,121 +528,9 @@ export default function RoutinePage() {
         )
       )}
 
-      {/* Hidden Render Container for HTML-to-Image Export */}
+      {/* Synchronized hidden DOM container for precise generation */}
       <div className="absolute top-[-9999px] left-[-9999px] pointer-events-none opacity-0">
-        <div
-          ref={exportRef}
-          style={{ width: '1380px' }}
-          className="bg-[#E8F5F3] p-6 space-y-4 box-border rounded-[32px] border border-teal-200"
-        >
-          {/* Top Banner */}
-          <div className="flex justify-between items-center pb-1">
-            <div className="flex items-center gap-3">
-              <div className="px-3 py-1 bg-white border border-slate-300/80 rounded-xl text-xs font-semibold text-slate-700 shadow-sm">
-                Effective From: 12 september 2026
-              </div>
-
-              {searchMeta.type === 'batch' ? (
-                <div className="flex items-center gap-6 bg-white px-6 py-1.5 border border-slate-200 rounded-full shadow-sm">
-                  <span className="text-xl font-black text-slate-800">
-                    Section: <span className="text-teal-700">{searchMeta.section}</span>
-                  </span>
-                  <span className="text-xl font-black text-slate-800">
-                    Batch: <span className="text-teal-700">{searchMeta.batch}</span>
-                  </span>
-                </div>
-              ) : (
-                <div className="bg-white px-5 py-1.5 border border-slate-200 rounded-full shadow-sm">
-                  <span className="text-xl font-black text-slate-800">
-                    Faculty: <span className="text-teal-700">{searchMeta.teacher}</span>
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h1 className="text-2xl font-black text-teal-800 tracking-tight">
-                Department of Software Engineering
-              </h1>
-            </div>
-          </div>
-
-          {/* Routine Grid Design */}
-          <div className="grid grid-cols-8 gap-2.5 w-full">
-            <div className="flex items-center justify-center font-bold text-slate-400 text-xs uppercase">
-              TIME
-            </div>
-
-            {DAYS.map((day) => (
-              <div
-                key={day}
-                className="bg-[#FF6B5B] text-white rounded-full flex items-center justify-center font-extrabold text-base shadow-sm h-[38px] truncate px-1"
-              >
-                {day}
-              </div>
-            ))}
-
-            {TIME_SLOTS.map((slot) => (
-              <React.Fragment key={slot}>
-                <div className="flex items-center justify-center font-extrabold text-xs text-slate-800 text-center leading-tight">
-                  {slot}
-                </div>
-
-                {DAYS.map((day) => {
-                  const matchedClasses = getScheduleForSlot(day, slot);
-                  const hasClass = matchedClasses.length > 0;
-
-                  return (
-                    <div
-                      key={`${day}-${slot}`}
-                      className={`rounded-2xl border flex flex-col justify-between p-1.5 min-h-[95px] ${
-                        hasClass
-                          ? 'bg-[#D1EFEA] border-teal-300 shadow-sm'
-                          : 'bg-[#DFF1EE]/50 border-teal-100/60'
-                      }`}
-                    >
-                      <div className="text-[9px] font-bold text-[#FF6B5B] text-center tracking-tight">
-                        {slot}
-                      </div>
-
-                      {hasClass ? (
-                        matchedClasses.map((item, idx) => {
-                          const { codeOnly, fullName } = parseCourseDetails(item.course_code);
-                          return (
-                            <div key={idx} className="text-center my-auto px-0.5">
-                              <div className="text-[10px] font-bold text-slate-900 leading-tight">
-                                {fullName}
-                              </div>
-                              <div className="text-[9px] text-slate-600 font-semibold mt-0.5">
-                                {codeOnly}{' '}
-                                {searchMeta.type === 'batch'
-                                  ? `- ${item.teacher_initial}`
-                                  : ''}
-                              </div>
-                              <div className="text-[9px] text-slate-600 font-semibold">
-                                Room: {item.room}
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="h-full" />
-                      )}
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* Footer */}
-          <div className="flex justify-between items-center pt-2 border-t border-teal-200/60 text-[11px] font-bold text-slate-600">
-            <span>sweroutine.com</span>
-            <span className="px-3 py-0.5 bg-white rounded-full border border-slate-200 text-slate-600 font-medium text-[10px] shadow-sm">
-              Generated from: sweroutine.com
-            </span>
-          </div>
-        </div>
+        {renderRoutineContent()}
       </div>
     </div>
   );
