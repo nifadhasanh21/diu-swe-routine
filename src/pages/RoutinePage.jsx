@@ -109,7 +109,6 @@ const TIME_SLOTS = [
   '4:00 - 5:30',
 ];
 
-// আপনার পুরনো লজিক রাখা হয়েছে এবং 01:00 ও 1:00 দুটিকেই সেইম ফরম্যাটে মেলাবে
 const normalizeTime = (rawTime) => {
   if (!rawTime) return '';
   let str = rawTime.toString().trim().replace(/\s+/g, '').replace(/\./g, ':');
@@ -291,7 +290,7 @@ export default function RoutinePage() {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-2 sm:p-4 md:p-8 space-y-6 font-sans text-slate-900">
+    <div className="w-full max-w-4xl mx-auto p-3 sm:p-6 space-y-6 font-sans text-slate-900">
       {/* Search Header */}
       <div className="max-w-xl mx-auto space-y-3">
         <form onSubmit={onSubmit} className="flex gap-2">
@@ -327,29 +326,43 @@ export default function RoutinePage() {
         </div>
       </div>
 
-      {loading ? null : schedules.length > 0 ? (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center px-1">
-            <span className="text-xs text-slate-500 font-medium">
-              Found <strong className="text-slate-900">{schedules.length}</strong> classes
-            </span>
+      {loading ? (
+        <div className="text-center py-8 text-xs text-slate-500">Loading schedule...</div>
+      ) : schedules.length > 0 ? (
+        /* diuroutine.com Style Clean Card Container */
+        <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5 max-w-2xl mx-auto">
+          {/* Header Status Message */}
+          <div className="text-center space-y-1">
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center justify-center gap-1.5">
+              Your routine is ready to download
+            </h2>
+            <p className="text-xs text-slate-500">
+              Found <strong>{schedules.length}</strong> classes for <strong>{query.toUpperCase()}</strong>
+            </p>
+          </div>
+
+          {/* Mobile Optimized Image View Container */}
+          <div className="w-full bg-[#E8F5F3] border border-teal-200/80 rounded-2xl p-2 sm:p-3 shadow-inner flex justify-center items-center overflow-hidden">
+            {previewImage ? (
+              <img
+                src={previewImage}
+                alt="Routine Preview"
+                className="w-full h-auto max-h-[65vh] object-contain rounded-xl shadow-sm"
+              />
+            ) : (
+              <div className="py-12 text-xs text-teal-800 font-medium">Generating routine preview...</div>
+            )}
+          </div>
+
+          {/* Action Button Located Cleanly Below Image */}
+          <div className="flex justify-center pt-2">
             <button
               onClick={handleDownloadJPG}
-              disabled={exporting}
-              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+              disabled={exporting || !previewImage}
+              className="w-full sm:w-auto px-8 py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-2xl font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2"
             >
               <span>📥</span> {exporting ? 'Downloading...' : 'Download Routine'}
             </button>
-          </div>
-
-          <div className="w-full bg-[#E8F5F3] border border-teal-200/80 rounded-2xl md:rounded-[32px] p-2 sm:p-4 shadow-xl overflow-x-auto">
-            {previewImage && (
-              <img
-                src={previewImage}
-                alt="Routine"
-                className="w-full h-auto rounded-xl object-contain shadow-sm min-w-[1000px]"
-              />
-            )}
           </div>
         </div>
       ) : (
@@ -363,14 +376,14 @@ export default function RoutinePage() {
         )
       )}
 
-      {/* Hidden Original Exact Routine Layout Engine (আপনার আগের অফস্ক্রিন ফরম্যাট) */}
+      {/* Hidden Render Container for HTML-to-Image Export */}
       <div className="absolute top-[-9999px] left-[-9999px] pointer-events-none opacity-0">
         <div
           ref={exportRef}
           style={{ width: '1380px' }}
           className="bg-[#E8F5F3] p-6 space-y-4 box-border rounded-[32px] border border-teal-200"
         >
-          {/* Exact Original Top Banner */}
+          {/* Top Banner */}
           <div className="flex justify-between items-center pb-1">
             <div className="flex items-center gap-3">
               <div className="px-3 py-1 bg-white border border-slate-300/80 rounded-xl text-xs font-semibold text-slate-700 shadow-sm">
@@ -402,7 +415,7 @@ export default function RoutinePage() {
             </div>
           </div>
 
-          {/* Exact Original Routine Grid Design */}
+          {/* Routine Grid Design */}
           <div className="grid grid-cols-8 gap-2.5 w-full">
             <div className="flex items-center justify-center font-bold text-slate-400 text-xs uppercase">
               TIME
@@ -470,7 +483,7 @@ export default function RoutinePage() {
             ))}
           </div>
 
-          {/* Exact Original Footer */}
+          {/* Footer */}
           <div className="flex justify-between items-center pt-2 border-t border-teal-200/60 text-[11px] font-bold text-slate-600">
             <span>sweroutine.com</span>
             <span className="px-3 py-0.5 bg-white rounded-full border border-slate-200 text-slate-600 font-medium text-[10px] shadow-sm">
