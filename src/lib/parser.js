@@ -5,21 +5,25 @@ export const parseCSVData = (csvText) => {
 
   lines.forEach((line, index) => {
     // Skip header line if detected
-    if (index === 0 && line.toLowerCase().includes('course_code')) return;
+    if (index === 0 && (line.toLowerCase().includes('course') || line.toLowerCase().includes('day'))) return;
 
     const parts = line.split(',').map(p => p.trim());
-    if (parts.length >= 8) {
-      const [day, start_time, end_time, room, course_code, course_name, teacher_initial, batch, section] = parts;
+    if (parts.length >= 5) {
+      const [day, room, time, course, teacher] = parts;
+
+      // Extract batch and section from Course string (e.g. MAT101-48-L -> Batch 48, Section L)
+      const courseParts = course.split('-');
+      const batch = courseParts[1] || '';
+      const section = courseParts[2] || 'A';
+
       validRows.push({
         day: capitalizeDay(day),
-        start_time,
-        end_time,
         room,
-        course_code: course_code ? course_code.toUpperCase() : '',
-        course_name: course_name || 'N/A',
-        teacher_initial: teacher_initial ? teacher_initial.toUpperCase() : '',
+        time,
+        course_code: course.toUpperCase(),
+        teacher_initial: teacher ? teacher.toUpperCase() : '',
         batch,
-        section: section ? section.toUpperCase() : 'A'
+        section: section.toUpperCase()
       });
     } else {
       invalidRows.push({ line, reason: 'Insufficient fields' });

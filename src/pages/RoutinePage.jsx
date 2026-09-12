@@ -4,21 +4,99 @@ import { supabase } from '../lib/supabase';
 import { toJpeg } from 'html-to-image';
 
 const COURSE_NAMES = {
-  GE324: 'Business Analysis & Commun...',
-  SE312: 'Software Quality Assurance...',
-  SE225: 'Data Communication & Compu...',
-  SE226: 'Lab C2 SE226 AMR / Lab C1 SE313 SNM',
-  SE313: 'Lab C2 Software Quality As...',
-  SE311: 'Design Pattern',
+  SE111: 'Computer Fundamentals',
+  SE112: 'Computer Fundamentals Lab',
+  SE113: 'Introduction to Software Engineering',
+  ENG101: 'English I',
+  BNS101: 'Bangladesh Studies',
   MAT101: 'Mathematics I',
-  MAT102: 'Mathematics II',
-  STA101: 'Statistics & Probability',
   SE121: 'Structured Programming',
-  SE235: 'Object Oriented Programming',
+  SE122: 'Structured Programming Lab',
+  SE123: 'Discrete Mathematics',
+  SE212: 'Software Requirements Specification & Analysis',
+  SE213: 'Digital Electronics & Logic Design',
   PHY101: 'Physics I',
-  SE232: 'Database Management System',
-  SE223: 'Digital Electronics',
+  MAT102: 'Mathematics II',
+  SE131: 'Data Structure',
+  SE132: 'Data Structure Lab',
+  SE133: 'Software Development Capstone Project',
+  SE216: 'Object Oriented Programming',
+  SE217: 'Object Oriented Programming Lab',
+  SE222: 'Computer Architecture',
+  STA101: 'Statistics & Probability',
+  AOL101: 'Art of Living',
+  SE211: 'Object Oriented Concepts',
+  SE221: 'Object Oriented Design',
+  SE214: 'Algorithm Design & Analysis',
+  SE215: 'Algorithm Design and Analysis Lab',
+  SE235: 'Desktop & Web Programming',
+  SE236: 'Desktop & Web Programming Lab',
+  SE223: 'Database System',
+  SE224: 'Database Systems Lab',
+  SE232: 'Operating System and System Programming',
+  SE233: 'Operating System & System Programming Lab',
+  GE235: 'Principles of Accounting, Business and Economics',
+  SE532: 'Introduction to Robotics',
+  SE225: 'Data Communication & Computer Networking',
+  SE226: 'Data Communication and Networking Lab',
+  SE231: 'System Analysis & Design Capstone Project',
+  SE234: 'Theory of Computing',
+  SE311: 'Design Pattern',
+  SE312: 'Software Quality Assurance & Testing',
+  SE313: 'Software Quality Assurance & Testing Lab',
+  GE324: 'Business Analysis & Communication',
+  SE321: 'Software Engineering Web Application',
+  SE322: 'Software Engineering Web Application Lab',
+  SE323: 'Software Architecture & Design',
+  SE332: 'Information System Security',
+  SE342: 'Compiler Design',
+  SE441: 'Software Engineering Professional Ethics',
   SE411: 'Software Project Management',
+  SE333: 'Artificial Intelligence',
+  SE334: 'Artificial Intelligence Lab',
+  SE544: 'Introduction to Machine Learning',
+  SE331: 'Software Engineering Design Capstone Project',
+  EMP101: 'Employability 360',
+  SE444: 'Data Warehouse and Data Mining',
+  SE447: 'Human Computer Interaction',
+  SE599: 'Research Methodology & Scientific Writing',
+  SE442: 'Management Information System',
+  RE331: 'Embedded Programming',
+  RE332: 'Embedded Programming Lab',
+  RE411: 'Embedded System Design and Development',
+  RE412: 'Embedded System Design and Development Lab',
+  RE421: 'Robotic Process Automation Design & Development',
+  RE422: 'Robotic Process Automation Design & Development Lab',
+  CS211: 'Cyber Security Fundamentals',
+  CS418: 'Network & Communication Security',
+  CS422: 'Digital Forensics',
+  DS331: 'Introduction to Data Science and Data Management & Analysis',
+  DS332: 'Introduction to Data Science and Data Management & Analysis Lab',
+  DS411: 'Statistical Data Analysis',
+  DS412: 'Statistical Data Analysis Lab',
+  DS421: 'Machine Learning Driven Data Analysis I',
+  DS422: 'Machine Learning Driven Data Analysis Lab',
+  SE431: 'Numerical Analysis',
+  RE423: 'Advanced Robotics',
+  RE424: 'Advanced Robotics Lab',
+  CS335: 'Ethical Hacking and Countermeasure Lab',
+  DS423: 'Machine Learning Driven Data Analysis II and Communicating Data Insights',
+  CS334: 'Ethical Hacking and Countermeasure',
+  DS424: 'Machine Learning Driven Data Analysis II and Communication Data Insights Lab',
+  ST411: 'Agile Testing',
+  ST412: 'Agile Testing Lab',
+  ST421: 'Testing with Generative AI',
+  ST422: 'Testing with Generative AI Lab',
+  ST413: 'Test Automation & Test Management',
+  ST414: 'Test Automation & Test Management Lab',
+  ST423: 'Software Performance Engineering & Security Testing',
+  ST424: 'Software Performance Engineering & Security Testing Lab',
+  GEDS237: 'Entrepreneurship in IT Business',
+  SE345: 'AI System & Application Development',
+  SE346: 'AI Systems & Application Development Lab',
+  SE344: 'Distributed Systems and Cloud Computing',
+  GEDS416: 'AI for Strategic Decision Making',
+  SE343: 'Software Maintenance',
 };
 
 const DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -32,16 +110,18 @@ const TIME_SLOTS = [
   '5:30 - 7:00',
 ];
 
+// আপনার পুরনো লজিক রাখা হয়েছে এবং 01:00 ও 1:00 দুটিকেই সেইম ফরম্যাটে মেলাবে
 const normalizeTime = (rawTime) => {
   if (!rawTime) return '';
-  let str = rawTime.replace(/\s+/g, '').replace(/\./g, ':');
+  let str = rawTime.toString().trim().replace(/\s+/g, '').replace(/\./g, ':');
   const parts = str.split('-');
   if (parts.length !== 2) return str;
 
   const pad = (tStr) => {
     if (tStr.includes(':')) {
       const [h, m] = tStr.split(':');
-      return `${parseInt(h, 10)}:${m.padStart(2, '0')}`;
+      const parsedH = parseInt(h, 10);
+      return `${parsedH}:${m.padStart(2, '0')}`;
     }
     return tStr;
   };
@@ -71,12 +151,12 @@ export default function RoutinePage() {
     }
   }, [query]);
 
-  // Instant image generation directly from exact previous design
   useEffect(() => {
     if (schedules.length > 0 && exportRef.current) {
       const renderInstantPreview = async () => {
         try {
-          await new Promise((resolve) => setTimeout(resolve, 50));
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          if (!exportRef.current) return;
           const dataUrl = await toJpeg(exportRef.current, {
             quality: 0.98,
             pixelRatio: 2,
@@ -99,7 +179,7 @@ export default function RoutinePage() {
     setPreviewImage(null);
 
     try {
-      const batchSecRegex = /^(\d{2,3})[\s-]*([a-zA-Z])$/;
+      const batchSecRegex = /^(\d{2,3})[\s-]*([a-zA-Z0-9]+)$/;
       const batchMatch = rawInput.match(batchSecRegex);
 
       let data = [];
@@ -173,7 +253,18 @@ export default function RoutinePage() {
   const parseCourseDetails = (rawCode) => {
     if (!rawCode) return { codeOnly: '', fullName: 'Course Class' };
     const cleanCode = rawCode.split('-')[0].trim();
-    const fullName = COURSE_NAMES[cleanCode] || cleanCode;
+
+    let groupLabel = '';
+    const parts = rawCode.split('-');
+    if (parts.length >= 3) {
+      const secGroup = parts[2].trim().toUpperCase();
+      if (secGroup.length > 1) {
+        groupLabel = `Lab ${secGroup} - `;
+      }
+    }
+
+    const baseName = COURSE_NAMES[cleanCode] || cleanCode;
+    const fullName = `${groupLabel}${baseName}`;
     return { codeOnly: cleanCode, fullName };
   };
 
@@ -252,13 +343,12 @@ export default function RoutinePage() {
             </button>
           </div>
 
-          {/* Exact Responsive Mobile Image View without Extra Text */}
-          <div className="w-full bg-[#E8F5F3] border border-teal-200/80 rounded-2xl md:rounded-[32px] p-2 sm:p-4 shadow-xl">
+          <div className="w-full bg-[#E8F5F3] border border-teal-200/80 rounded-2xl md:rounded-[32px] p-2 sm:p-4 shadow-xl overflow-x-auto">
             {previewImage && (
               <img
                 src={previewImage}
                 alt="Routine"
-                className="w-full h-auto rounded-xl object-contain shadow-sm"
+                className="w-full h-auto rounded-xl object-contain shadow-sm min-w-[1000px]"
               />
             )}
           </div>
@@ -274,11 +364,11 @@ export default function RoutinePage() {
         )
       )}
 
-      {/* Hidden Original Exact Routine Layout Engine */}
+      {/* Hidden Original Exact Routine Layout Engine (আপনার আগের অফস্ক্রিন ফরম্যাট) */}
       <div className="absolute top-[-9999px] left-[-9999px] pointer-events-none opacity-0">
         <div
           ref={exportRef}
-          style={{ width: '1280px' }}
+          style={{ width: '1380px' }}
           className="bg-[#E8F5F3] p-6 space-y-4 box-border rounded-[32px] border border-teal-200"
         >
           {/* Exact Original Top Banner */}
@@ -360,7 +450,10 @@ export default function RoutinePage() {
                                 {fullName}
                               </div>
                               <div className="text-[9px] text-slate-600 font-semibold mt-0.5">
-                                {codeOnly} {searchMeta.type === 'batch' ? `- ${item.teacher_initial}` : ''}
+                                {codeOnly}{' '}
+                                {searchMeta.type === 'batch'
+                                  ? `- ${item.teacher_initial}`
+                                  : ''}
                               </div>
                               <div className="text-[9px] text-slate-600 font-semibold">
                                 Room: {item.room}
